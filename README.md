@@ -1,3 +1,9 @@
+![Python](https://img.shields.io/badge/Python-3.10+-blue)
+![Flask](https://img.shields.io/badge/Flask-Web_Framework-green)
+![Whisper](https://img.shields.io/badge/Whisper-GenAI-orange)
+![Socket.IO](https://img.shields.io/badge/Socket.IO-Realtime-black)
+![Status](https://img.shields.io/badge/Status-Working-success)
+
 # 🎤 LiveTranslateSubs — Real-Time Speech Translation
 
 LiveTranslateSubs is a **real-time speech-to-text and translation web application** built using **Flask, Socket.IO, and OpenAI Whisper (faster-whisper)**.  
@@ -34,7 +40,15 @@ This project demonstrates practical usage of **GenAI, audio processing, WebSocke
 - NumPy
 
 ---
+## 🧠 How It Works
 
+1. Browser records microphone audio using MediaRecorder API
+2. Audio is sent to the backend via Socket.IO
+3. FFmpeg converts WebM/Opus audio to PCM float32
+4. Whisper model performs speech recognition
+5. Detected speech is translated into English
+6. Transcribed subtitles are sent back to the browser in real time
+---
 ## 📁 Project Structure
 
 LiveTranslationCaption/
