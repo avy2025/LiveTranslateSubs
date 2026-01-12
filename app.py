@@ -1,179 +1,150 @@
-# ================== FORCE FFMPEG (IMPORTANT) ==================
-import os
-os.environ["PATH"] += os.pathsep + r"C:\Users\admin\Downloads\ffmpeg\bin"
-
-# ================== IMPORTS ==================
+import base64
+import numpy as np
 from flask import Flask
 from flask_socketio import SocketIO, emit
 from faster_whisper import WhisperModel
-import base64
-import numpy as np
-import ffmpeg
-import shutil
+import threading
+import time
 
-# ================== DEBUG CHECK ==================
-print("FFmpeg found at:", shutil.which("ffmpeg"))
+# ================== CONFIG ==================
+SAMPLE_RATE = 16000
+CHUNK_SECONDS = 2.0
 
-# ================== FLASK APP ==================
+# ================== APP ==================
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "live-translate"
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# ================== LOAD WHISPER ==================
+# ================== WHISPER ==================
 print("🔄 Loading Whisper model...")
-model = WhisperModel(
-    "tiny",
-    device="cpu",
-    compute_type="int8"
-)
-print("✅ Whisper ready!")
+model = WhisperModel("tiny", device="cpu", compute_type="int8")
+print("✅ Whisper ready")
 
-# ================== AUDIO DECODER ==================
-def decode_webm_opus(audio_bytes):
-    """
-    Converts WebM/Opus bytes to PCM float32 @16kHz
-    """
-    out, err = (
-        ffmpeg
-        .input("pipe:0")
-        .output(
-            "pipe:1",
-            format="f32le",
-            ac=1,
-            ar="16000"
-        )
-        .run(
-            input=audio_bytes,
-            capture_stdout=True,
-            capture_stderr=True
-        )
-    )
-    return np.frombuffer(out, np.float32)
+# ================== AUDIO STATE ==================
+audio_buffer = []
+buffer_lock = threading.Lock()
 
-# ================== ROUTE ==================
+# ================== FRONTEND ==================
 @app.route("/")
 def index():
     return """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>LiveTranslateSubs</title>
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-    <style>
-        body { font-family: Arial; background: #111; color: white; text-align: center; }
-        button { padding: 15px 30px; font-size: 18px; border-radius: 20px; border: none; }
-        .recording { background: red; color: white; }
-        #subs { margin-top: 20px; background: black; color: #0f0; padding: 20px; height: 300px; overflow-y: auto; font-size: 22px; }
-    </style>
+<meta charset="UTF-8">
+<title>Live Translate Subs</title>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+<style>
+body {
+    background:#0e0e0e;
+    color:#00ff9c;
+    font-family:Arial;
+    text-align:center;
+}
+button {
+    padding:12px 28px;
+    font-size:18px;
+    border-radius:25px;
+    border:none;
+    cursor:pointer;
+}
+#status {
+    margin-top:15px;
+    color:#ccc;
+}
+#subs {
+    margin:20px auto;
+    width:80%;
+    min-height:200px;
+    background:#000;
+    padding:15px;
+    border-radius:10px;
+    font-size:22px;
+}
+</style>
 </head>
+
 <body>
-    <h1>🎤 Live Whisper Translation</h1>
-    <button id="btn">Record 4s</button>
-    <p id="status">Speak clearly & loudly</p>
-    <div id="subs">Waiting...</div>
+<h2>🎤 Live Multilingual → English</h2>
+<button id="start">Start</button>
+<p id="status">Idle</p>
+<div id="subs"></div>
 
 <script>
 const socket = io();
-let recorder, stream, chunks = [];
+let audioCtx, source, processor;
+let running = false;
 
-document.getElementById("btn").onclick = async () => {
-    chunks = [];
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+document.getElementById("start").onclick = async () => {
+    if (running) return;
 
-    recorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
-    recorder.ondataavailable = e => chunks.push(e.data);
-    recorder.onstop = sendAudio;
+    running = true;
+    document.getElementById("status").innerText = "Listening...";
 
-    recorder.start();
-    document.getElementById("btn").className = "recording";
-    document.getElementById("btn").innerText = "Recording...";
-    document.getElementById("status").innerText = "Recording... Speak now!";
+    const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate:16000 });
 
-    setTimeout(() => {
-        recorder.stop();
-        stream.getTracks().forEach(t => t.stop());
-    }, 4000);
+    source = audioCtx.createMediaStreamSource(stream);
+    processor = audioCtx.createScriptProcessor(4096, 1, 1);
+
+    source.connect(processor);
+    processor.connect(audioCtx.destination);
+
+    processor.onaudioprocess = e => {
+        if (!running) return;
+        const input = e.inputBuffer.getChannelData(0);
+        const bytes = new Uint8Array(input.buffer);
+        const b64 = btoa(String.fromCharCode(...bytes));
+        socket.emit("audio", b64);
+    };
 };
 
-async function sendAudio() {
-    const blob = new Blob(chunks, { type: "audio/webm;codecs=opus" });
-    const buffer = await blob.arrayBuffer();
-    const bytes = new Uint8Array(buffer);
-
-    let binary = "";
-    for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-
-    const base64Audio = btoa(binary);
-
-    socket.emit("audio_chunk", {
-        audio: base64Audio,
-        size: blob.size
-    });
-
-    document.getElementById("btn").className = "";
-    document.getElementById("btn").innerText = "Record again";
-}
-
 socket.on("subtitle", data => {
-    document.getElementById("subs").innerHTML += "<p>" + data.text + "</p>";
-    document.getElementById("subs").scrollTop = document.getElementById("subs").scrollHeight;
-    document.getElementById("status").innerText = "Done";
+    const el = document.getElementById("subs");
+    el.innerHTML += " " + data.text;
+    el.scrollTop = el.scrollHeight;
 });
 </script>
 </body>
 </html>
 """
 
-# ================== SOCKET HANDLER ==================
-@socketio.on("audio_chunk")
-def handle_audio(data):
+# ================== SOCKET ==================
+@socketio.on("audio")
+def handle_audio(b64):
+    global audio_buffer
+
     try:
-        audio_bytes = base64.b64decode(data["audio"])
-        print("📡 Received bytes:", len(audio_bytes))
+        pcm = np.frombuffer(base64.b64decode(b64), dtype=np.float32)
 
-        if len(audio_bytes) < 3000:
-            emit("subtitle", {
-                "text": "Speak louder or longer",
-                "lang": "en"
-            })
-            return
+        with buffer_lock:
+            audio_buffer.append(pcm)
+            total = sum(len(x) for x in audio_buffer)
 
-        audio = decode_webm_opus(audio_bytes)
-        print("🎧 Audio samples:", audio.shape)
+            if total >= int(SAMPLE_RATE * CHUNK_SECONDS):
+                audio = np.concatenate(audio_buffer)
+                audio_buffer.clear()
 
-        segments, info = model.transcribe(
-            audio,
-            task="translate",
-            vad_filter=True,
-            beam_size=5,
-            temperature=0.0
-        )
+        if 'audio' in locals():
+            segments, info = model.transcribe(
+                audio,
+                task="translate",
+                vad_filter=True
+            )
 
-        text = " ".join(
-            s.text.strip()
-            for s in segments
-            if s.text.strip()
-        )
-
-        emit("subtitle", {
-            "text": text if text else "[No speech detected]",
-            "lang": info.language or "unknown"
-        })
-
-        print("📝 Result:", text)
+            text = " ".join(s.text.strip() for s in segments if s.text.strip())
+            if text:
+                emit("subtitle", {"text": text})
+                print(f"🌍 {info.language} → EN | {text}")
 
     except Exception as e:
         print("❌ Error:", e)
-        emit("subtitle", {
-            "text": "Error processing audio",
-            "lang": "en"
-        })
+        audio_buffer.clear()
 
 # ================== RUN ==================
 if __name__ == "__main__":
-    print("🚀 Server running at http://127.0.0.1:5000")
+    print("🚀 http://127.0.0.1:5000")
     socketio.run(app, host="127.0.0.1", port=5000, debug=True)
 
 

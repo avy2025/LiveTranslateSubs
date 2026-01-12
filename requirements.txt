@@ -1,6 +1,5 @@
 flask
 flask-socketio
 faster-whisper
-ffmpeg-python
 numpy
-eventlet
+
