@@ -7,35 +7,34 @@ from flask import Flask, render_template
 from flask_socketio import SocketIO
 from faster_whisper import WhisperModel
 
-# ================= CONFIG =================
 SAMPLE_RATE = 16000
 WINDOW_SECONDS = 12.0
 DECODE_INTERVAL = 1.8
 MIN_AUDIO_SECONDS = 3.0
 MAX_HISTORY = 300
 
-# ================= APP ====================
+#flask
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
 
-# ================= WHISPER ===============
-print("🔄 Loading Whisper model...")
+#implementing whisper 
+print(" Loading Whisper model...")
 model = WhisperModel("base", device="cpu", compute_type="int8")
-print("✅ Whisper ready (ALL languages → English)")
+print(" Whisper ready (ALL languages → English)")
 
-# ================= STATE ==================
+#audio
 audio_buffer = np.zeros(0, dtype=np.float32)
 audio_time_cursor = 0.0
 emitted_segments = deque(maxlen=MAX_HISTORY)
 listening = False
 state_lock = eventlet.semaphore.Semaphore()
 
-# ================= ROUTE ==================
+#path
 @app.route("/")
 def index():
     return render_template("index.html")
 
-# ================= SOCKET =================
+#socket information
 @socketio.on("toggle_listen")
 def toggle_listen(data):
     global listening
@@ -59,7 +58,7 @@ def handle_audio_chunk(chunk):
         if len(audio_buffer) > max_len:
             audio_buffer = audio_buffer[-max_len:]
 
-# ================= DECODER LOOP ===========
+#setting loop
 def decode_loop():
     while True:
         eventlet.sleep(DECODE_INTERVAL)
@@ -103,14 +102,15 @@ def decode_loop():
 
             if new_text:
                 socketio.emit("subtitle", {"text": " ".join(new_text)})
-                print(f"🌍 {info.language} → EN | {' '.join(new_text)}")
+                print(f" {info.language} → EN | {' '.join(new_text)}")
 
         except Exception as e:
-            print(f"❌ Whisper error: {e}")
+            print(f" Whisper error: {e}")
 
-# ================= START ==================
+#start
 eventlet.spawn(decode_loop)
 
 if __name__ == "__main__":
-    print("🚀 http://127.0.0.1:5000")
+    print(" http://127.0.0.1:5000")
     socketio.run(app, host="127.0.0.1", port=5000, debug=True)
+
