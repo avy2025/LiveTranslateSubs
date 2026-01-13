@@ -1,5 +1,5 @@
 flask
 flask-socketio
-faster-whisper
 numpy
-
+faster-whisper
+eventlet

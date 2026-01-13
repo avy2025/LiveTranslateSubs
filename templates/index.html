@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Live Translate Subs</title>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<style>
+body {
+    background:#0e0e0e;
+    color:#00ff9c;
+    font-family:Arial;
+    text-align:center;
+}
+button {
+    padding:12px 30px;
+    font-size:18px;
+    border-radius:25px;
+    border:none;
+    cursor:pointer;
+    background:#00ff9c;
+}
+#subs {
+    margin:20px auto;
+    width:80%;
+    min-height:200px;
+    background:#000;
+    padding:15px;
+    border-radius:10px;
+    font-size:22px;
+    text-align:left;
+}
+</style>
+</head>
+
+<body>
+<h2>🎤 Live Multilingual → English</h2>
+<button id="toggle">Start</button>
+<div id="subs"></div>
+
+<script>
+const socket = io();
+let audioCtx, worklet;
+let started = false;
+let listening = false;
+
+document.getElementById("toggle").onclick = async () => {
+    if (!started) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioCtx = new AudioContext();
+
+        await audioCtx.audioWorklet.addModule("/static/audio-worklet.js");
+
+        const source = audioCtx.createMediaStreamSource(stream);
+        worklet = new AudioWorkletNode(audioCtx, "resampling-processor");
+
+        worklet.port.onmessage = e => {
+            socket.emit("audio_chunk", e.data);
+        };
+
+        source.connect(worklet);
+        started = true;
+    }
+
+    listening = !listening;
+    socket.emit("toggle_listen", { state: listening });
+    document.getElementById("toggle").textContent = listening ? "Pause" : "Start";
+};
+
+socket.on("subtitle", data => {
+    const el = document.getElementById("subs");
+    el.innerHTML += " " + data.text;
+    el.scrollTop = el.scrollHeight;
+});
+</script>
+</body>
+</html>
