@@ -1,5 +1,6 @@
-flask
-flask-socketio
+fastapi
+uvicorn
+python-socketio
+jinja2
 numpy
 faster-whisper
-eventlet
