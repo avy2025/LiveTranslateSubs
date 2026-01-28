@@ -1,184 +1,89 @@
-# 🎤 LiveTranslateSubs — Near Real-Time Speech Translation
+# 🎤 LiveTranslateSubs — High-Performance Live Speech Translation
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue?style=for-the-badge&logo=python)
-![Flask](https://img.shields.io/badge/Flask-Web_Framework-green?style=for-the-badge&logo=flask)
+![FastAPI](https://img.shields.io/badge/FastAPI-Framework-009688?style=for-the-badge&logo=fastapi)
 ![Whisper](https://img.shields.io/badge/Whisper-faster--whisper-orange?style=for-the-badge)
 ![Socket.IO](https://img.shields.io/badge/Socket.IO-Realtime-black?style=for-the-badge&logo=socketdotio)
 
-**LiveTranslateSubs** is a near real-time, browser-based speech translation system that captures live microphone audio, streams it to a Python backend, and translates **any spoken language into English subtitles** using **Whisper via faster-whisper**.
+**LiveTranslateSubs** is a sophisticated, real-time speech translation system that captures live microphone audio from the browser, translates it into English, and displays it with ultra-low latency. 
 
-The project focuses on **low latency, correctness, and architectural clarity**, avoiding unreliable delta-text hacks and deprecated browser APIs.
-
----
-
-## ✨ Key Features
-
-- 🎙 **True Live Audio Streaming**
-  - Streams raw `float32` PCM audio from the browser
-  - No FFmpeg, no file uploads, no blobs
-
-- 🔁 **Sliding Window Transcription**
-  - Rolling audio window with overlap
-  - Prevents context loss and repeated hallucinations
-
-- 🧠 **Robust Deduplication**
-  - Uses **absolute timestamps + text hashing**
-  - Avoids duplicate subtitles without fragile string comparisons
-
-- ⚡ **Optimized Whisper Inference**
-  - Powered by `faster-whisper`
-  - CPU-friendly `int8` quantization
-
-- 🗣 **Automatic Multilingual → English Translation**
-  - Uses Whisper’s built-in translation mode
-  - No language selection required
-
-- ⏯ **Start / Pause Control**
-  - Toggle live transcription without refreshing the page
-
-- 🌑 **Clean Dark UI**
-  - Minimal, distraction-free subtitle display
+Recently overhauled to use a modern **FastAPI + Asyncio** architecture, it now supports true **word-level streaming** and professional-grade features for streamers and users alike.
 
 ---
 
-## 🧠 Architecture Overview
+## ✨ New & Updated Features
 
-Unlike naïve implementations, LiveTranslateSubs avoids common pitfalls like timestamp resets, buffer discontinuity, and broken delta detection.
+- 🏎️ **FastAPI & Asyncio Backend**
+  - Fully asynchronous architecture for high concurrency and lower latency.
+  - Replaced legacy Flask/Eventlet with modern, scalable `FastAPI` and `python-socketio`.
 
-### High-Level Flow
+- 🌊 **True Word-Level Streaming**
+  - Captions appear word-by-word as you speak, providing a "truly live" feel.
+  - Uses Whisper's word-level timestamps for granular emission.
 
-1. **Browser**
-   - Captures microphone audio using **AudioWorklet**
-   - Resamples audio from device rate (usually 48kHz) → **16kHz**
-   - Sends small PCM chunks via Socket.IO
+- 🧠 **Dynamic Model & GPU Control**
+  - **Model Selection**: Switch between `Tiny`, `Base`, `Small`, `Medium`, and `Large-v3` on the fly.
+  - **Hardware Toggle**: Seamlessly switch between CPU and GPU (NVIDIA CUDA) acceleration from the UI.
 
-2. **Backend**
-   - Appends audio to a rolling window buffer
-   - Tracks absolute audio time cursor
-   - Decodes every ~1.8 seconds
+- 🗣️ **Manual Language Lock**
+  - Added a language selector to prevent auto-detection errors.
+  - Significantly improves translation quality and accuracy by providing context.
 
-3. **Whisper Engine**
-   - Transcribes the **entire sliding window**
-   - Uses VAD to ignore silence
-   - Produces stable segment timestamps
+- 🎥 **OBS Overlay Mode**
+  - Dedicated transparent view at `/overlay` for live streamers.
+  - Optimized font styling for high visibility on video.
 
-4. **Deduplication**
-   - Each segment mapped to absolute time
-   - Previously emitted segments are skipped safely
-
-5. **Frontend**
-   - Receives translated subtitles in near real-time
-   - Appends text smoothly without flicker
+- 💾 **Subtitle Export**
+  - Save your live sessions as professional `.srt` or `.vtt` files directly from the browser.
 
 ---
 
 ## 🛠 Tech Stack
 
 ### Backend
-- Python 3.10+
-- Flask
-- Flask-SocketIO
-- faster-whisper
-- NumPy
-- Eventlet (see limitations)
+- **FastAPI**: Asynchronous web framework.
+- **Python-SocketIO**: Real-time bidirectional communication.
+- **faster-whisper**: High-performance Whisper implementation via CTranslate2.
+- **NumPy**: Efficient audio buffer processing.
 
 ### Frontend
-- HTML / CSS
-- JavaScript
-- Web Audio API
-- AudioWorklet
-- Socket.IO Client
+- **Modern UI**: Dark-mode interface with smooth transitions.
+- **AudioWorklet**: Low-latency, high-quality audio capture with linear interpolation resampling.
+- **Web Audio API**: Real-time microphone capture.
 
 ---
 
-## 📁 Project Structure
+## ⚙️ Installation & Setup
 
-```text
-.
-├── app.py
-├── static/
-│   └── audio-worklet.js
-├── templates/
-│   └── index.html
-├── README.md
-└── requirements.txt
-⚙️ Installation & Setup
-1️⃣ Clone the Repository
-bash
-Copy code
+1️⃣ **Clone the Repository**
+```bash
 git clone https://github.com/your-username/LiveTranslateSubs.git
 cd LiveTranslateSubs
-2️⃣ Install Dependencies
-bash
-Copy code
-pip install flask flask-socketio faster-whisper numpy eventlet
-⚠️ Note: faster-whisper requires ctranslate2.
-On Windows, use CPU unless CUDA is properly installed.
+```
 
-3️⃣ Run the Application
-bash
-Copy code
+2️⃣ **Install Dependencies**
+```bash
+pip install -r requirements.txt
+```
+
+3️⃣ **Run the Application**
+```bash
 python app.py
-4️⃣ Open in Browser
-cpp
-Copy code
-http://127.0.0.1:5000
-Click Start, speak in any language, and see English subtitles appear.
+```
 
-🚧 Limitations (Important)
-This project is near real-time, not true streaming ASR. Current limitations include:
+4️⃣ **Open in Browser**
+Access the main interface at: `http://127.0.0.1:5000`
+Access the OBS Overlay at: `http://127.0.0.1:5000/overlay`
 
-❌ Not word-by-word streaming
+---
 
-Whisper is segment-based, not token-streaming
-
-❌ Eventlet is deprecated
-
-Used for stability with Flask-SocketIO
-
-Migration to asyncio or Quart is recommended
-
-❌ Latency depends on CPU
-
-Lower-end CPUs may see 2–3s delay
-
-GPU improves latency significantly
-
-❌ No speaker diarization
-
-Multiple speakers are not separated
-
-❌ No punctuation stabilization
-
-Early segments may slightly change as context improves
-
-🔮 Improvements Still Needed
-Planned and recommended enhancements:
-
- Migrate from Eventlet → asyncio-based backend
-
- True token-level streaming (Whisper.cpp / Realtime models)
-
- Display timestamps or sentence-by-sentence captions
-
- Export subtitles as .srt / .vtt
-
- Add language auto-detection display
-
- Model selector (Tiny / Base / Small / Medium)
-
- GPU acceleration toggle
-
- Noise suppression & gain control
-
- OBS / live streaming overlay mode
-
-👤 Author
-Ranjan Thakur
+## 👤 Author
+**Ranjan Thakur**
 Engineering Student | GenAI & Real-Time Systems Enthusiast
 
-⭐ Final Note
-This project prioritizes correct real-time behavior over shortcuts.
-If you’re building live transcription systems, this repo demonstrates how to do it the right way.
+---
+
+## ⭐ Final Note
+This project demonstrates how to build robust, production-quality live transcription systems by combining modern web technologies with state-of-the-art AI models.
 
 Feel free to fork, improve, and experiment 🚀
