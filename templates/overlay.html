@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>OBS Overlay | LiveSubs</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        body {
+            background: transparent;
+            margin: 0;
+            padding: 20px;
+            overflow: hidden;
+            color: white;
+            font-family: 'Arial', sans-serif;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8), -2px -2px 4px rgba(0, 0, 0, 0.8);
+            font-weight: bold;
+        }
+
+        #subs {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            text-align: center;
+            font-size: 32px;
+            line-height: 1.4;
+            max-height: 200px;
+            overflow: hidden;
+        }
+
+        .segment {
+            display: inline-block;
+            margin: 0 5px;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="subs"></div>
+
+    <script>
+        const socket = io();
+        const subsEl = document.getElementById("subs");
+        const MAX_SEGMENTS = 5; // Keep only recent segments to avoid clutter
+
+        socket.on("subtitle", data => {
+            const span = document.createElement("span");
+            span.className = "segment";
+            span.textContent = data.text;
+            subsEl.appendChild(span);
+
+            // Limited history for cleaner look
+            if (subsEl.childNodes.length > MAX_SEGMENTS) {
+                subsEl.removeChild(subsEl.firstChild);
+            }
+        });
+    </script>
+</body>
+
+</html>
