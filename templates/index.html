@@ -189,10 +189,17 @@
 
     <div class="container">
         <h1>🎤 LiveSubs</h1>
-        <p style="color: var(--muted-text); margin-top: -10px; margin-bottom: 30px;">Real-time Multilingual to English
-            Translation</p>
+        <p id="feature-desc" style="color: var(--muted-text); margin-top: -10px; margin-bottom: 30px;">Real-time
+            Multilingual to English Translation</p>
 
         <div class="settings-bar">
+            <div>
+                Mode:
+                <select id="task-select">
+                    <option value="translate" selected>Translate to English</option>
+                    <option value="transcribe">Live Captioning (Original)</option>
+                </select>
+            </div>
             <div>
                 Language:
                 <select id="lang-select">
@@ -319,12 +326,22 @@
         const modelSelect = document.getElementById("model-select");
         const deviceSelect = document.getElementById("device-select");
         const langSelect = document.getElementById("lang-select");
+        const taskSelect = document.getElementById("task-select");
+        const featureDesc = document.getElementById("feature-desc");
 
         const updateModel = () => {
+            const task = taskSelect.value;
+            if (task === "translate") {
+                featureDesc.textContent = "Real-time Multilingual to English Translation";
+            } else {
+                featureDesc.textContent = "Real-time Same-Language Captioning";
+            }
+
             socket.emit("update_settings", {
                 model: modelSelect.value,
                 device: deviceSelect.value,
-                language: langSelect.value
+                language: langSelect.value,
+                task: task
             });
             statusText.textContent = "Reloading Model...";
         };
@@ -332,6 +349,7 @@
         modelSelect.onchange = updateModel;
         deviceSelect.onchange = updateModel;
         langSelect.onchange = updateModel;
+        taskSelect.onchange = updateModel;
 
         socket.on("settings_updated", (data) => {
             statusText.textContent = listening ? "Listening..." : "Connected";

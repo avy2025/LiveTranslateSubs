@@ -45,6 +45,7 @@ class GlobalState:
         self.current_model_name = DEFAULT_MODEL
         self.current_device = DEFAULT_DEVICE
         self.source_lang = None # None means auto-detect
+        self.current_task = "translate" # "translate" or "transcribe"
 
 state = GlobalState()
 
@@ -73,6 +74,7 @@ async def update_settings(sid, data):
     model_size = data.get("model", state.current_model_name)
     device = data.get("device", state.current_device)
     state.source_lang = data.get("language") if data.get("language") != "auto" else None
+    state.current_task = data.get("task", state.current_task)
     
     if model_size != state.current_model_name or device != state.current_device:
         logger.info(f"Updating model: {model_size} on {device}")
@@ -80,11 +82,12 @@ async def update_settings(sid, data):
             state.audio_buffer = np.zeros(0, dtype=np.float32)
             load_model(model_size, device)
     
-    logger.info(f"Settings updated: Model={state.current_model_name}, Device={state.current_device}, Lang={state.source_lang}")
+    logger.info(f"Settings updated: Model={state.current_model_name}, Device={state.current_device}, Lang={state.source_lang}, Task={state.current_task}")
     await sio.emit("settings_updated", {
         "model": state.current_model_name, 
         "device": state.current_device,
-        "language": state.source_lang or "auto"
+        "language": state.source_lang or "auto",
+        "task": state.current_task
     }, to=sid)
 
 @app.get("/", response_class=HTMLResponse)
@@ -141,14 +144,14 @@ async def decode_loop():
                 None, 
                 lambda: state.model.transcribe(
                     audio,
-                    task="translate",
+                    task=state.current_task,
                     language=state.source_lang,
                     vad_filter=True,
                     beam_size=5,
                     temperature=0.0,
                     word_timestamps=True,
                     condition_on_previous_text=True,
-                    initial_prompt="I am translating a live speech into English."
+                    initial_prompt=f"I am {state.current_task}ing a live speech."
                 )
             )
 
