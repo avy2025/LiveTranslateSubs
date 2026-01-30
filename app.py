@@ -20,7 +20,7 @@ MIN_AUDIO_SECONDS = 3.0
 MAX_HISTORY = 300
 
 # Constants for model management
-DEFAULT_MODEL = "small"  # Upgraded from base to small for better accuracy/translation
+DEFAULT_MODEL = "base"  # Changed from small to base for better CPU performance
 DEFAULT_DEVICE = "cpu"
 DEFAULT_COMPUTE = "int8"
 
@@ -54,7 +54,7 @@ def load_model(model_size=DEFAULT_MODEL, device=DEFAULT_DEVICE):
     try:
         # Use float16 on GPU, int8 on CPU for best performance/quality balance
         compute_type = "float16" if device == "cuda" else "int8"
-        state.model = WhisperModel(model_size, device=device, compute_type=compute_type)
+        state.model = WhisperModel(model_size, device=device, compute_type=compute_type, cpu_threads=4)
         state.current_model_name = model_size
         state.current_device = device
         logger.info(f"Whisper model '{model_size}' ready on {device}")
@@ -131,7 +131,7 @@ async def decode_loop():
 
         async with state.lock:
             if len(state.audio_buffer) < int(SAMPLE_RATE * MIN_AUDIO_SECONDS):
-                return # Not enough audio yet
+                continue # Not enough audio yet, wait for next interval
 
             audio = state.audio_buffer.copy()
             window_duration = len(audio) / SAMPLE_RATE
@@ -139,6 +139,9 @@ async def decode_loop():
             logger.info(f"Decoding {window_duration:.2f}s of audio (buffer size: {len(audio)})")
 
         try:
+            prompt = "I am translating this speech to English." if state.current_task == "translate" else None
+            logger.info(f"Task: {state.current_task}, Lang Hint: {state.source_lang}")
+            
             loop = asyncio.get_event_loop()
             segments, info = await loop.run_in_executor(
                 None, 
@@ -147,14 +150,15 @@ async def decode_loop():
                     task=state.current_task,
                     language=state.source_lang,
                     vad_filter=True,
-                    beam_size=5,
+                    beam_size=2, # Reduced from 5 for speed
                     temperature=0.0,
                     word_timestamps=True,
                     condition_on_previous_text=True,
-                    initial_prompt=f"I am {state.current_task}ing a live speech."
+                    initial_prompt=prompt
                 )
             )
 
+            logger.info(f"Detected: {info.language} ({info.language_probability:.2f})")
             seg_count = 0
             for seg in segments:
                 seg_count += 1
