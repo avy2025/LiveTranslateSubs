@@ -14,23 +14,50 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 SAMPLE_RATE = 16000
-WINDOW_SECONDS = 12.0
-DECODE_INTERVAL = 1.0  # Slightly faster interval for asyncio
-MIN_AUDIO_SECONDS = 3.0
+WINDOW_SECONDS = 10.0
+DECODE_INTERVAL = 0.8
+MIN_AUDIO_SECONDS = 2.0 # Increased slightly to reduce noise fragments
 MAX_HISTORY = 300
 
+# Common Whisper hallucinations to filter out
+HALLUCINATIONS = [
+    "Thank you", "Thanks for watching", "Please subscribe", 
+    "Subtitle by", "Subtitles by", "Bye", "bye", "you", "Thank you.",
+    "Watching!", "Thanks.", "thank you"
+]
+
 # Constants for model management
-DEFAULT_MODEL = "base"  # Changed from small to base for better CPU performance
+DEFAULT_MODEL = "small"  # Reverted from large-v3-turbo because it may be too heavy for CPU
 DEFAULT_DEVICE = "cpu"
 DEFAULT_COMPUTE = "int8"
 
-# FastAPI setup
-app = FastAPI()
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
-
 # Socket.IO setup
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
+
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Load model and start transcription loop
+    logger.info("Initializing system...")
+    asyncio.create_task(decode_loop())
+    # Load model in background to not block startup
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, load_model)
+    
+    # Heartbeat to keep connection alive and verify health
+    async def heartbeat():
+        while True:
+            await sio.emit("heartbeat", {"status": "ok", "model_ready": state.model is not None})
+            await asyncio.sleep(5)
+    asyncio.create_task(heartbeat())
+    
+    yield
+    # Shutdown logic (if any) could go here
+
+app = FastAPI(lifespan=lifespan)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
 socket_app = socketio.ASGIApp(sio, app)
 
 # Global State
@@ -44,8 +71,8 @@ class GlobalState:
         self.lock = asyncio.Lock()
         self.current_model_name = DEFAULT_MODEL
         self.current_device = DEFAULT_DEVICE
-        self.source_lang = None # None means auto-detect
-        self.current_task = "translate" # "translate" or "transcribe"
+        self.source_lang = "hi" # Defaulted to Hindi as per user request
+        self.current_task = "translate" # Defaulted to Translate to English
 
 state = GlobalState()
 
@@ -67,7 +94,8 @@ def load_model(model_size=DEFAULT_MODEL, device=DEFAULT_DEVICE):
             raise e
 
 # Initialize model
-load_model()
+# model loading is now triggered in lifespan
+# load_model() 
 
 @sio.on("update_settings")
 async def update_settings(sid, data):
@@ -111,11 +139,15 @@ async def handle_audio_chunk(sid, chunk):
     if not state.listening:
         return
 
+    if state.audio_time_cursor == 0:
+        logger.info("📡 First audio chunk received")
+
     pcm = np.array(chunk, dtype=np.float32)
 
     async with state.lock:
         state.audio_buffer = np.concatenate([state.audio_buffer, pcm])
         state.audio_time_cursor += len(pcm) / SAMPLE_RATE
+        # logger.info(f"Audio buffer expanded to {len(state.audio_buffer)} samples")
 
         max_len = int(SAMPLE_RATE * WINDOW_SECONDS)
         if len(state.audio_buffer) > max_len:
@@ -127,19 +159,36 @@ async def decode_loop():
         await asyncio.sleep(DECODE_INTERVAL)
 
         if not state.listening:
+            # logger.info("Transcription loop: Not listening")
+            continue
+
+        if state.model is None:
+            # logger.info("Waiting for model to load...")
             continue
 
         async with state.lock:
-            if len(state.audio_buffer) < int(SAMPLE_RATE * MIN_AUDIO_SECONDS):
-                continue # Not enough audio yet, wait for next interval
+            buffer_needed = int(SAMPLE_RATE * MIN_AUDIO_SECONDS)
+            if len(state.audio_buffer) < buffer_needed:
+                # logger.info(f"Not enough audio: {len(state.audio_buffer)} < {buffer_needed}")
+                continue 
 
             audio = state.audio_buffer.copy()
             window_duration = len(audio) / SAMPLE_RATE
             window_start = state.audio_time_cursor - window_duration
-            logger.info(f"Decoding {window_duration:.2f}s of audio (buffer size: {len(audio)})")
+            
+            # Check for silent audio (all zeros)
+            if np.all(audio == 0):
+                logger.warning("🔇 Audio buffer is completely silent (all zeros!)")
+            
+            logger.info(f"🔄 Decoding {window_duration:.2f}s (Buffer: {len(audio)})")
 
         try:
-            prompt = "I am translating this speech to English." if state.current_task == "translate" else None
+            # Better prompt to guide Hindi to English translation
+            if state.current_task == "translate":
+                prompt = "Transcribe and translate Hindi speech to English and keep it accurate. Context: real-time spoken Hindi."
+            else:
+                prompt = "Transcribe Hindi speech accurately."
+            
             logger.info(f"Task: {state.current_task}, Lang Hint: {state.source_lang}")
             
             loop = asyncio.get_event_loop()
@@ -150,18 +199,34 @@ async def decode_loop():
                     task=state.current_task,
                     language=state.source_lang,
                     vad_filter=True,
-                    beam_size=2, # Reduced from 5 for speed
+                    vad_parameters=dict(min_speech_duration_ms=400, threshold=0.4), # Stricter VAD
+                    beam_size=5, 
                     temperature=0.0,
                     word_timestamps=True,
-                    condition_on_previous_text=True,
-                    initial_prompt=prompt
+                    condition_on_previous_text=False, # Disabled to prevent "Thank you" loops
+                    initial_prompt=prompt,
+                    best_of=5,
+                    no_speech_threshold=0.7, # Stricter on silence
+                    log_prob_threshold=-1.0,
+                    compression_ratio_threshold=2.4
                 )
             )
+
+            if info.language != state.source_lang:
+                logger.info(f"🌍 Detected language: {info.language} (p={info.language_probability:.2f})")
 
             logger.info(f"Detected: {info.language} ({info.language_probability:.2f})")
             seg_count = 0
             for seg in segments:
+                text = seg.text.strip()
+                
+                # Hallucination Filter
+                if any(h.lower() in text.lower() for h in HALLUCINATIONS) and len(text.split()) < 4:
+                    logger.info(f"🚫 Filtered hallucination: '{text}'")
+                    continue
+
                 seg_count += 1
+                logger.info(f"📝 Segment {seg_count}: '{text}'")
                 if seg.words:
                     for word in seg.words:
                         text = word.word.strip()
@@ -186,15 +251,15 @@ async def decode_loop():
             
             if seg_count == 0:
                 logger.info("VAD detected silence/noise (no segments found)")
+                await sio.emit("vad_status", {"active": False})
             else:
                 logger.info(f"Detected {seg_count} segments")
+                await sio.emit("vad_status", {"active": True})
 
         except Exception as e:
             logger.error(f" Whisper error: {e}")
 
-@app.on_event("startup")
-async def startup_event():
-    asyncio.create_task(decode_loop())
+# Removed deprecated on_event("startup") - handled by lifespan
 
 if __name__ == "__main__":
     import uvicorn
