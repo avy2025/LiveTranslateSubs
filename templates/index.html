@@ -46,6 +46,7 @@
             margin-bottom: 10px;
             background: linear-gradient(45deg, #00ff9c, #00d1ff);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
@@ -154,6 +155,33 @@
             background: var(--accent-color);
         }
 
+        .dot.active {
+            background: #ff00ff;
+            box-shadow: 0 0 10px #ff00ff;
+        }
+
+        .processing-indicator {
+            display: none;
+            font-size: 12px;
+            color: var(--accent-color);
+            margin-left: 10px;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 0.5;
+            }
+
+            50% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0.5;
+            }
+        }
+
         .export-buttons {
             display: flex;
             gap: 10px;
@@ -203,8 +231,8 @@
             <div>
                 Language:
                 <select id="lang-select">
-                    <option value="auto" selected>Auto-Detect</option>
-                    <option value="hi">Hindi</option>
+                    <option value="auto">Auto-Detect</option>
+                    <option value="hi" selected>Hindi</option>
                     <option value="es">Spanish</option>
                     <option value="fr">French</option>
                     <option value="de">German</option>
@@ -248,6 +276,11 @@
             <div class="status">
                 <div id="status-dot" class="dot"></div>
                 <span id="status-text">Connecting...</span>
+                <span id="model-status" style="font-size: 11px; color: #ff9800; margin-left: 10px;">(Model
+                    Loading...)</span>
+                <span id="audio-captured" style="display:none; color: #00d1ff; font-size: 12px; margin-left: 10px;">🎤
+                    Audio Captured</span>
+                <span id="processing" class="processing-indicator">⚡ Processing...</span>
             </div>
             <div class="export-buttons">
                 <button class="export-btn" onclick="exportSubs('srt')">Export .SRT</button>
@@ -292,6 +325,7 @@
                     worklet.port.onmessage = e => {
                         if (listening) {
                             socket.emit("audio_chunk", e.data);
+                            document.getElementById("audio-captured").style.display = "inline";
                         }
                     };
 
@@ -354,6 +388,29 @@
         socket.on("settings_updated", (data) => {
             statusText.textContent = listening ? "Listening..." : "Connected";
             console.log("Model updated:", data);
+        });
+
+        socket.on("heartbeat", data => {
+            const mStatus = document.getElementById("model-status");
+            if (data.model_ready) {
+                mStatus.textContent = "(Model Ready)";
+                mStatus.style.color = "var(--accent-color)";
+            } else {
+                mStatus.textContent = "(Model Loading...)";
+                mStatus.style.color = "#ff9800";
+            }
+        });
+
+        socket.on("vad_status", data => {
+            const dot = document.getElementById("status-dot");
+            const processing = document.getElementById("processing");
+            if (data.active) {
+                dot.classList.add("active");
+                processing.style.display = "inline";
+            } else {
+                dot.classList.remove("active");
+                processing.style.display = "none";
+            }
         });
 
         socket.on("subtitle", data => {

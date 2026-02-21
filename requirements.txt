@@ -4,3 +4,4 @@ python-socketio
 jinja2
 numpy
 faster-whisper
+ctranslate2>=4.7.1
