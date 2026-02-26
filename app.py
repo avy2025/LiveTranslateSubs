@@ -8,6 +8,8 @@ from fastapi.templating import Jinja2Templates
 import socketio
 from faster_whisper import WhisperModel
 import logging
+import functools
+import time
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -73,6 +75,7 @@ class GlobalState:
         self.current_device = DEFAULT_DEVICE
         self.source_lang = "hi" # Defaulted to Hindi as per user request
         self.current_task = "translate" # Defaulted to Translate to English
+        self.translation_cache = {} # Cache for translations
 
 state = GlobalState()
 
@@ -234,20 +237,30 @@ async def decode_loop():
                             continue
                         
                         abs_start = round(window_start + word.start, 2)
+                        abs_end = round(window_start + word.end, 2)
                         key = (abs_start, text)
 
                         if key not in state.emitted_segments:
                             state.emitted_segments.append(key)
-                            await sio.emit("subtitle", {"text": text})
+                            await sio.emit("subtitle", {
+                                "text": text,
+                                "start": abs_start,
+                                "end": abs_end
+                            })
                             await asyncio.sleep(0.01) 
                 else:
                     text = seg.text.strip()
                     if text:
                         abs_start = round(window_start + seg.start, 2)
+                        abs_end = round(window_start + seg.end, 2)
                         key = (abs_start, text)
                         if key not in state.emitted_segments:
                             state.emitted_segments.append(key)
-                            await sio.emit("subtitle", {"text": text})
+                            await sio.emit("subtitle", {
+                                "text": text,
+                                "start": abs_start,
+                                "end": abs_end
+                            })
             
             if seg_count == 0:
                 logger.info("VAD detected silence/noise (no segments found)")

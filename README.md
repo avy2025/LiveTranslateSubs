@@ -5,85 +5,69 @@
 ![Whisper](https://img.shields.io/badge/Whisper-faster--whisper-orange?style=for-the-badge)
 ![Socket.IO](https://img.shields.io/badge/Socket.IO-Realtime-black?style=for-the-badge&logo=socketdotio)
 
-**LiveTranslateSubs** is a sophisticated, real-time speech translation system that captures live microphone audio from the browser, translates it into English, and displays it with ultra-low latency. 
+## 🌟 Overview
+**LiveTranslateSubs** is a sophisticated, real-time speech translation system that captures live microphone audio from the browser, translates it into English, and displays it with ultra-low latency. It leverages the power of `faster-whisper` for high-performance inference and `FastAPI` for a modern, asynchronous backend.
 
-Recently overhauled to use a modern **FastAPI + Asyncio** architecture, it now supports true **word-level streaming** and professional-grade features for streamers and users alike.
+## 🏗️ Architecture
+```mermaid
+graph TD
+    A[Browser Mic] -->|Audio Stream| B[WebSocket]
+    B -->|PCM Chunks| C[FastAPI Server]
+    C -->|Audio Buffer| D[Whisper Model]
+    D -->|Transcription/Translation| E[Translation API/Cache]
+    E -->|Subtitle Stream| F[Subtitle Display/Overlay]
+```
 
----
-
-## ✨ New & Updated Features
-
-- 🏎️ **FastAPI & Asyncio Backend**
-  - Fully asynchronous architecture for high concurrency and lower latency.
-  - Replaced legacy Flask/Eventlet with modern, scalable `FastAPI` and `python-socketio`.
-
-- 🌊 **True Word-Level Streaming**
-  - Captions appear word-by-word as you speak, providing a "truly live" feel.
-  - Uses Whisper's word-level timestamps for granular emission.
-
-- 🧠 **Dynamic Model & GPU Control**
-  - **Model Selection**: Switch between `Tiny`, `Base`, `Small`, `Medium`, and `Large-v3` on the fly.
-  - **Hardware Toggle**: Seamlessly switch between CPU and GPU (NVIDIA CUDA) acceleration from the UI.
-
-- 🗣️ **Manual Language Lock**
-  - Added a language selector to prevent auto-detection errors.
-  - Significantly improves translation quality and accuracy by providing context.
-
-- 🎥 **OBS Overlay Mode**
-  - Dedicated transparent view at `/overlay` for live streamers.
-  - Optimized font styling for high visibility on video.
-
-- 💾 **Subtitle Export**
-  - Save your live sessions as professional `.srt` or `.vtt` files directly from the browser.
-
----
-
-## 🛠 Tech Stack
-
-### Backend
-- **FastAPI**: Asynchronous web framework.
-- **Python-SocketIO**: Real-time bidirectional communication.
-- **faster-whisper**: High-performance Whisper implementation via CTranslate2.
-- **NumPy**: Efficient audio buffer processing.
-
-### Frontend
-- **Modern UI**: Dark-mode interface with smooth transitions.
-- **AudioWorklet**: Low-latency, high-quality audio capture with linear interpolation resampling.
-- **Web Audio API**: Real-time microphone capture.
-
----
+## 🚀 Features
+- 🏎️ **FastAPI & Asyncio Backend**: Fully asynchronous architecture for high concurrency and lower latency.
+- 🌊 **True Word-Level Streaming**: Captions appear word-by-word as you speak.
+- 🧠 **Dynamic Model & GPU Control**: Switch between `Tiny` to `Large-v3` models and CPU/GPU hardware on the fly.
+- 🗣️ **Manual Language Lock**: Precision language selection to prevent auto-detection errors.
+- ⏱️ **Subtitle Timestamping**: Real-time start/end timestamps for every word/segment.
+- 💾 **Subtitle Export**: Save sessions as professional `.srt` or `.vtt` files with accurate timing.
+- ⚡ **Translation Caching**: Optimized repeats handling to reduce processing load.
+- 🎥 **OBS Overlay Mode**: Dedicated transparent view for live streamers.
+- 🐳 **Docker Support**: Easy deployment using containerization.
 
 ## ⚙️ Installation & Setup
 
-1️⃣ **Clone the Repository**
-```bash
-git clone https://github.com/your-username/LiveTranslateSubs.git
-cd LiveTranslateSubs
-```
+### Local Installation
+1. **Clone the Repository**
+   ```bash
+   git clone https://github.com/your-username/LiveTranslateSubs.git
+   cd LiveTranslateSubs
+   ```
+2. **Install Dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. **Run the Application**
+   ```bash
+   python app.py
+   ```
 
-2️⃣ **Install Dependencies**
-```bash
-pip install -r requirements.txt
-```
+### Docker Deployment
+1. **Build the Image**
+   ```bash
+   docker build -t livetranslate .
+   ```
+2. **Run the Container**
+   ```bash
+   docker run -p 5000:5000 livetranslate
+   ```
 
-3️⃣ **Run the Application**
-```bash
-python app.py
-```
-
-4️⃣ **Open in Browser**
+## 📺 Demo
 Access the main interface at: `http://127.0.0.1:5000`
 Access the OBS Overlay at: `http://127.0.0.1:5000/overlay`
+
+## 🛠 Future Improvements
+- [ ] Multiple output languages support.
+- [ ] UI themes and customizable subtitle styles.
+- [ ] Integration with more LLMs for post-translation refinement.
+- [ ] Native desktop application wrapper.
 
 ---
 
 ## 👤 Author
 **Ranjan Thakur**
 Engineering Student | GenAI & Real-Time Systems Enthusiast
-
----
-
-## ⭐ Final Note
-This project demonstrates how to build robust, production-quality live transcription systems by combining modern web technologies with state-of-the-art AI models.
-
-Feel free to fork, improve, and experiment 🚀

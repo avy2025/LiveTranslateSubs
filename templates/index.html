@@ -429,9 +429,24 @@
             // Store for export
             fullTranscript.push({
                 text: data.text,
-                time: new Date().toISOString() // Placeholder for actual timestamps if needed
+                start: data.start,
+                end: data.end
             });
         });
+
+        function formatTime(seconds) {
+            const date = new Date(0);
+            date.setSeconds(seconds);
+            const hh = date.getUTCHours().toString().padStart(2, '0');
+            const mm = date.getUTCMinutes().toString().padStart(2, '0');
+            const ss = date.getUTCSeconds().toString().padStart(2, '0');
+            const ms = Math.floor((seconds % 1) * 1000).toString().padStart(3, '0');
+            return `${hh}:${mm}:${ss},${ms}`;
+        }
+
+        function formatTimeVTT(seconds) {
+            return formatTime(seconds).replace(',', '.');
+        }
 
         function exportSubs(format) {
             if (fullTranscript.length === 0) {
@@ -442,11 +457,11 @@
             let content = "";
             if (format === 'srt') {
                 content = fullTranscript.map((item, i) => {
-                    return `${i + 1}\n00:00:00,000 --> 00:00:00,000\n${item.text}\n\n`;
+                    return `${i + 1}\n${formatTime(item.start)} --> ${formatTime(item.end)}\n${item.text}\n\n`;
                 }).join("");
             } else {
                 content = "WEBVTT\n\n" + fullTranscript.map((item, i) => {
-                    return `00:00:00.000 --> 00:00:00.000\n${item.text}\n\n`;
+                    return `${formatTimeVTT(item.start)} --> ${formatTimeVTT(item.end)}\n${item.text}\n\n`;
                 }).join("");
             }
 
