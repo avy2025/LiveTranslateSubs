@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiveTranslateSubs | Professional AI Streaming</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>LiveTranslateSubs</h1>
+            <div class="status-bar">
+                <span id="model-badge" class="badge">Detecting...</span>
+                <span id="device-badge" class="badge">CPU</span>
+                <span id="hardware-badge" class="badge">Checking RAM...</span>
+                <span id="language-badge" class="badge">Auto</span>
+            </div>
+        </header>
+
+        <main>
+            <div id="subtitles-container">
+                <div id="subtitles-area">
+                    <p class="placeholder">Waiting for audio stream...</p>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button id="toggle-mic" class="btn primary">Start Microphone</button>
+                <div class="metrics">
+                    <div class="metric">
+                        <label>Inference Latency</label>
+                        <span id="latency-val">0ms</span>
+                    </div>
+                    <div class="metric">
+                        <label>Buffer Size</label>
+                        <span id="buffer-val">0.0s</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Adaptive Real-Time Speech Translation System</p>
+        </footer>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+
+</html>
