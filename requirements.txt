@@ -5,3 +5,10 @@ jinja2
 numpy
 faster-whisper
 ctranslate2>=4.7.1
+psutil
+torch --index-url https://download.pytorch.org/whl/cpu
+deep-translator
+librosa
+transformers
+sentencepiece
+sacremoses

@@ -1,73 +1,64 @@
-# 🎤 LiveTranslateSubs — High-Performance Live Speech Translation
+# LiveTranslateSubs 🎙️🌍
 
-![Python](https://img.shields.io/badge/Python-3.10+-blue?style=for-the-badge&logo=python)
-![FastAPI](https://img.shields.io/badge/FastAPI-Framework-009688?style=for-the-badge&logo=fastapi)
-![Whisper](https://img.shields.io/badge/Whisper-faster--whisper-orange?style=for-the-badge)
-![Socket.IO](https://img.shields.io/badge/Socket.IO-Realtime-black?style=for-the-badge&logo=socketdotio)
+LiveTranslateSubs is a professional-grade, real-time speech translation system designed for low-latency subtitle generation. It features an adaptive AI engine that automatically scales its performance based on available hardware, ensuring smooth operation on everything from low-end CPUs to high-performance CUDA GPUs.
 
-## 🌟 Overview
-**LiveTranslateSubs** is a sophisticated, real-time speech translation system that captures live microphone audio from the browser, translates it into English, and displays it with ultra-low latency. It leverages the power of `faster-whisper` for high-performance inference and `FastAPI` for a modern, asynchronous backend.
+## 🚀 Key Features
 
-## 🏗️ Architecture
+- **Adaptive AI Engine**: Automatically detects system RAM and GPU to select the best Whisper model (`tiny`, `base`, or `small`/`medium`).
+- **Real-Time Streaming**: Low-latency audio streaming from the browser using Web Audio API and WebSockets.
+- **Speech-to-Text Translation**: High-accuracy transcription via `faster-whisper` followed by specialized text translation.
+- **Subtitle Stabilization**: Advanced buffering and stabilization logic to reduce flickering and hallucinations.
+- **Hardware Agnostic**: Fully compatible with 4GB RAM CPU-only systems while leveraging NVIDIA GPUs when available.
+
+## 🏗️ System Architecture
+
 ```mermaid
 graph TD
-    A[Browser Mic] -->|Audio Stream| B[WebSocket]
-    B -->|PCM Chunks| C[FastAPI Server]
-    C -->|Audio Buffer| D[Whisper Model]
-    D -->|Transcription/Translation| E[Translation API/Cache]
-    E -->|Subtitle Stream| F[Subtitle Display/Overlay]
+    A[Browser Mic] -->|Web Audio API| B[WebSocket Stream]
+    B -->|Audio Chunks| C[Backend Audio Buffer]
+    C -->|Accumulated Audio| D[Whisper Transcription]
+    D -->|Text| E[Translation Engine]
+    E -->|Translated Text| F[Subtitle Stabilizer]
+    F -->|Stabilized Subs| G[Frontend Display]
 ```
 
-## 🚀 Features
-- 🏎️ **FastAPI & Asyncio Backend**: Fully asynchronous architecture for high concurrency and lower latency.
-- 🌊 **True Word-Level Streaming**: Captions appear word-by-word as you speak.
-- 🧠 **Dynamic Model & GPU Control**: Switch between `Tiny` to `Large-v3` models and CPU/GPU hardware on the fly.
-- 🗣️ **Manual Language Lock**: Precision language selection to prevent auto-detection errors.
-- ⏱️ **Subtitle Timestamping**: Real-time start/end timestamps for every word/segment.
-- 💾 **Subtitle Export**: Save sessions as professional `.srt` or `.vtt` files with accurate timing.
-- ⚡ **Translation Caching**: Optimized repeats handling to reduce processing load.
-- 🎥 **OBS Overlay Mode**: Dedicated transparent view for live streamers.
-- 🐳 **Docker Support**: Easy deployment using containerization.
+## ⚙️ Hardware Adaptive Logic
 
-## ⚙️ Installation & Setup
+| System Tier | Hardware Specs | Model Selected | Device |
+|-------------|----------------|----------------|--------|
+| **Low-End** | <= 4GB RAM, No GPU | `tiny` | CPU |
+| **Mid-Range** | 8GB+ RAM, No GPU | `base` | CPU |
+| **High-End** | NVIDIA GPU Detected | `small` / `medium` | CUDA |
 
-### Local Installation
-1. **Clone the Repository**
+## 🛠️ Installation & Setup
+
+1. **Clone the repository**:
    ```bash
-   git clone https://github.com/your-username/LiveTranslateSubs.git
+   git clone https://github.com/avy2025/LiveTranslateSubs.git
    cd LiveTranslateSubs
    ```
-2. **Install Dependencies**
+
+2. **Install Dependencies**:
    ```bash
    pip install -r requirements.txt
    ```
-3. **Run the Application**
-   ```bash
-   python app.py
-   ```
 
-### Docker Deployment
-1. **Build the Image**
+3. **Run the Application**:
    ```bash
-   docker build -t livetranslate .
+   python main.py
    ```
-2. **Run the Container**
-   ```bash
-   docker run -p 5000:5000 livetranslate
-   ```
+   *Note: I will create a entry points main.py that calls backend/server.py*
 
-## 📺 Demo
-Access the main interface at: `http://127.0.0.1:5000`
-Access the OBS Overlay at: `http://127.0.0.1:5000/overlay`
+4. **Access UI**:
+   Open `http://127.0.0.1:5000` in your browser.
 
-## 🛠 Future Improvements
-- [ ] Multiple output languages support.
-- [ ] UI themes and customizable subtitle styles.
-- [ ] Integration with more LLMs for post-translation refinement.
-- [ ] Native desktop application wrapper.
+## 🐳 Docker Deployment
+
+Build and run using Docker:
+```bash
+docker build -t live-translate-subs .
+docker run -p 5000:5000 live-translate-subs
+```
 
 ---
-
-## 👤 Author
-**Ranjan Thakur**
-Engineering Student | GenAI & Real-Time Systems Enthusiast
+Developed as a high-performance modular system for real-time live translation.
