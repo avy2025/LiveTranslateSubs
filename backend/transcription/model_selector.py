@@ -9,21 +9,21 @@ def get_model_config():
     """
     hw = detect_hardware()
     
-    # Defaults (Low-end)
-    model_name = "tiny"
+    # Defaults (Baseline: 4GB+ RAM)
+    model_name = "base"
     device = "cpu"
     compute_type = "int8"
     
     if hw["cuda_available"]:
         # High-end (GPU detected)
-        model_name = "small" # User recommended small or medium for high-end
+        model_name = "small" 
         if hw["gpu_memory_gb"] > 4:
             model_name = "medium"
         device = "cuda"
         compute_type = "float16"
-    elif hw["ram_gb"] > 7:
-        # Mid-range (8GB+ RAM, no GPU)
-        model_name = "base"
+    elif hw["ram_gb"] < 4:
+        # Lower-end fallback
+        model_name = "tiny"
         device = "cpu"
         compute_type = "int8"
         
