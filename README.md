@@ -4,7 +4,7 @@ LiveTranslateSubs is a professional-grade, real-time speech translation system d
 
 ## 🚀 Key Features
 
-- **Adaptive AI Engine**: Automatically detects system RAM and GPU to select the best Whisper model (`tiny`, `base`, or `small`/`medium`).
+- **Adaptive AI Engine**: Automatically detects system RAM and GPU to select the best Whisper model (`base` as default, `small`/`medium` for GPU, or `tiny` for ultra Low-end).
 - **Real-Time Streaming**: Low-latency audio streaming from the browser using Web Audio API and WebSockets.
 - **Speech-to-Text Translation**: High-accuracy transcription via `faster-whisper` followed by specialized text translation.
 - **Subtitle Stabilization**: Advanced buffering and stabilization logic to reduce flickering and hallucinations.
@@ -26,8 +26,8 @@ graph TD
 
 | System Tier | Hardware Specs | Model Selected | Device |
 |-------------|----------------|----------------|--------|
-| **Low-End** | <= 4GB RAM, No GPU | `tiny` | CPU |
-| **Mid-Range** | 8GB+ RAM, No GPU | `base` | CPU |
+| **Baseline** | >= 4GB RAM, No GPU | `base` | CPU |
+| **Low-End** | < 4GB RAM, No GPU | `tiny` | CPU |
 | **High-End** | NVIDIA GPU Detected | `small` / `medium` | CUDA |
 
 ## 🛠️ Installation & Setup
